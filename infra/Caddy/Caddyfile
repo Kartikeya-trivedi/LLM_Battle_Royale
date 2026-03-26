@@ -83,7 +83,7 @@
 
     reverse_proxy @websocket backend:80 {
         transport http {
-            versions h1
+            versions 1.1
             keepalive 30s
         }
     }
