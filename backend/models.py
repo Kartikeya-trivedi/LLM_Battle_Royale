@@ -83,6 +83,9 @@ class AppState:
         # Configurable inter-round delays (seconds)
         self.sub_round_delay_seconds: int = 30
         self.round_delay_seconds: int = 300
+        # Registration & endpoint editing locks
+        self.registration_open: bool = True
+        self.endpoint_editing_open: bool = True
 
         # Load existing data from database
         self._load_from_database()
@@ -258,6 +261,8 @@ class AppState:
         self.total_bracket_rounds = 0
         self.sub_round_delay_seconds = 30
         self.round_delay_seconds = 300
+        self.registration_open = True
+        self.endpoint_editing_open = True
 
         # Clear database
         SubmissionRepository.delete_all_submissions()
@@ -278,6 +283,8 @@ class AppState:
             "champion": self.champion,
             "sub_round_delay_seconds": self.sub_round_delay_seconds,
             "round_delay_seconds": self.round_delay_seconds,
+            "registration_open": self.registration_open,
+            "endpoint_editing_open": self.endpoint_editing_open,
         }
 
 

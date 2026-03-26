@@ -314,6 +314,78 @@ export default function AdminDashboard() {
             </div>
 
             <div className="admin-grid">
+                {/* Team Management Card */}
+                <div className="card admin-full">
+                    <div className="admin-section-header">
+                        <h3>👥 Team Management ({teams.length})</h3>
+                    </div>
+                    {teams.length === 0 ? (
+                        <p style={{ color: 'var(--text-muted)' }}>No teams registered yet.</p>
+                    ) : (
+                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left' }}>
+                                        <th style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>Name</th>
+                                        <th style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>Members</th>
+                                        <th style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>Endpoint</th>
+                                        <th style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>Seed</th>
+                                        <th style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>Status</th>
+                                        <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', textAlign: 'right' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {teams.map((t) => (
+                                        <tr key={t.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <td style={{ padding: '0.5rem', fontWeight: 600 }}>{t.name}</td>
+                                            <td style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>
+                                                {Array.isArray(t.members)
+                                                    ? t.members.map(m => typeof m === 'string' ? m : m.name).join(', ')
+                                                    : '—'}
+                                            </td>
+                                            <td style={{ padding: '0.5rem', fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {t.endpoint_url || '—'}
+                                            </td>
+                                            <td style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>
+                                                {t.seed ? `#${t.seed}` : '—'}
+                                            </td>
+                                            <td style={{ padding: '0.5rem' }}>
+                                                {t.eliminated
+                                                    ? <span style={{ color: 'var(--accent-red)', fontSize: '0.8rem' }}>❌ Out</span>
+                                                    : <span style={{ color: 'var(--accent-green)', fontSize: '0.8rem' }}>✅ Active</span>}
+                                            </td>
+                                            <td style={{ padding: '0.5rem', textAlign: 'right' }}>
+                                                <button
+                                                    className="btn btn-danger btn-sm"
+                                                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                                                    disabled={appState.bracket_generated || loading[`del-${t.id}`]}
+                                                    onClick={async () => {
+                                                        if (!window.confirm(`Delete team "${t.name}"? This cannot be undone.`)) return;
+                                                        setLoading(prev => ({ ...prev, [`del-${t.id}`]: true }));
+                                                        try {
+                                                            await apiCall(`/api/admin/teams/${t.id}`, 'DELETE');
+                                                        } finally {
+                                                            setLoading(prev => ({ ...prev, [`del-${t.id}`]: false }));
+                                                        }
+                                                    }}
+                                                    title={appState.bracket_generated ? 'Cannot delete after bracket is generated' : 'Delete this team'}
+                                                >
+                                                    🗑️ Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                    {appState.bracket_generated && (
+                        <p style={{ fontSize: '0.75rem', color: 'var(--accent-yellow)', marginTop: '0.5rem' }}>
+                            ⚠️ Team deletion is disabled after bracket generation. Reset the bracket first to remove teams.
+                        </p>
+                    )}
+                </div>
+
                 {/* Setup Card */}
                 <div className="card">
                     <div className="admin-section-header">
@@ -351,6 +423,31 @@ export default function AdminDashboard() {
                         {appState.seeded ? '✅ Seeded' : '⏳ Not seeded'}
                         {' · '}
                         {appState.bracket_generated ? `✅ Bracket ready (${totalBracketRounds} rounds)` : '⏳ No bracket'}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                        <button
+                            className={`btn btn-sm ${appState.registration_open ? 'btn-danger' : 'btn-success'}`}
+                            onClick={() => apiCall('/api/admin/toggle-registration')}
+                            disabled={loading['/api/admin/toggle-registration']}
+                        >
+                            {appState.registration_open ? '🔒 Close Registration' : '🔓 Open Registration'}
+                        </button>
+                        <button
+                            className={`btn btn-sm ${appState.endpoint_editing_open ? 'btn-danger' : 'btn-success'}`}
+                            onClick={() => apiCall('/api/admin/toggle-endpoint-editing')}
+                            disabled={loading['/api/admin/toggle-endpoint-editing']}
+                        >
+                            {appState.endpoint_editing_open ? '🔒 Lock Endpoints' : '🔓 Unlock Endpoints'}
+                        </button>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                        Registration: {appState.registration_open
+                            ? <span style={{ color: 'var(--accent-green)' }}>Open</span>
+                            : <span style={{ color: 'var(--accent-red)' }}>Closed</span>}
+                        {' · '}
+                        Endpoints: {appState.endpoint_editing_open
+                            ? <span style={{ color: 'var(--accent-green)' }}>Editable</span>
+                            : <span style={{ color: 'var(--accent-red)' }}>Locked</span>}
                     </div>
                 </div>
 

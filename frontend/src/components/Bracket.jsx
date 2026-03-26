@@ -62,6 +62,16 @@ export default function Bracket({ currentBracketRound }) {
         if (!rounds[m.round_number]) rounds[m.round_number] = [];
         rounds[m.round_number].push(m);
     });
+    // Deduplicate: keep only one match per match_index per round (first one wins)
+    Object.keys(rounds).forEach((rn) => {
+        const seen = new Set();
+        rounds[rn] = rounds[rn].filter((m) => {
+            const key = `${m.round_number}_${m.match_index}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    });
     const sortedRoundNums = Object.keys(rounds).map(Number).sort((a, b) => a - b);
 
     if (sortedRoundNums.length === 0) {

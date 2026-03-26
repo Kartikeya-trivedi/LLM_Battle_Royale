@@ -110,6 +110,24 @@ async def admin_login(data: dict):
     return {"token": token}
 
 
+@router.delete("/teams/{team_id}")
+async def delete_team(team_id: str, _=Depends(verify_admin)):
+    """Delete an individual team. Only allowed before bracket is generated."""
+    if state.bracket_generated:
+        raise HTTPException(status_code=400, detail="Cannot delete teams after bracket has been generated. Reset the bracket first.")
+
+    team = state.get_team_by_id(team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    deleted = TeamRepository.delete_team(team_id)
+    if not deleted:
+        raise HTTPException(status_code=500, detail="Failed to delete team from database")
+
+    await manager.broadcast("team_removed", {"team_id": team_id, "team_name": team["name"]})
+    return {"message": f"Team '{team['name']}' deleted successfully", "team_id": team_id}
+
+
 @router.get("/questions")
 async def get_questions(_=Depends(verify_admin)):
     """Return predefined round questions."""
@@ -157,12 +175,37 @@ async def seed(data: dict = None, _=Depends(verify_admin)):
     return {"message": f"Seeded {len(teams)} teams", "teams": teams}
 
 
+@router.post("/toggle-registration")
+async def toggle_registration(_=Depends(verify_admin)):
+    """Toggle registration open/closed."""
+    state.registration_open = not state.registration_open
+    await manager.broadcast("registration_status", {"registration_open": state.registration_open})
+    status = "open" if state.registration_open else "closed"
+    return {"message": f"Registration is now {status}", "registration_open": state.registration_open}
+
+
+@router.post("/toggle-endpoint-editing")
+async def toggle_endpoint_editing(_=Depends(verify_admin)):
+    """Toggle endpoint editing open/locked."""
+    state.endpoint_editing_open = not state.endpoint_editing_open
+    await manager.broadcast("endpoint_editing_status", {"endpoint_editing_open": state.endpoint_editing_open})
+    status = "open" if state.endpoint_editing_open else "locked"
+    return {"message": f"Endpoint editing is now {status}", "endpoint_editing_open": state.endpoint_editing_open}
+
+
 @router.post("/generate-bracket")
 async def gen_bracket(_=Depends(verify_admin)):
     """Generate tournament bracket from seeded teams."""
     if not state.seeded:
         raise HTTPException(status_code=400, detail="Teams must be seeded first")
     matches = generate_bracket()
+
+    # Auto-lock registration and endpoint editing when tournament starts
+    state.registration_open = False
+    state.endpoint_editing_open = False
+    await manager.broadcast("registration_status", {"registration_open": False})
+    await manager.broadcast("endpoint_editing_status", {"endpoint_editing_open": False})
+
     await manager.broadcast("bracket_update", {
         "matches": matches,
         "current_bracket_round": state.current_bracket_round,

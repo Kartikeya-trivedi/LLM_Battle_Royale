@@ -67,6 +67,10 @@ def _check_rate_limit(client_ip: str):
 
 @router.post("", response_model=TeamOut)
 async def register_team(team: TeamCreate, request: Request):
+    # Check if registration is open
+    if not state.registration_open:
+        raise HTTPException(status_code=403, detail="Registration is currently closed")
+
     # Rate limit check
     client_ip = request.client.host if request.client else "unknown"
     _check_rate_limit(client_ip)
@@ -128,6 +132,10 @@ async def update_team_endpoint(team_id: str, data: TeamEndpointUpdate):
     team = state.get_team_by_id(team_id)
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
+
+    # Check if endpoint editing is open
+    if not state.endpoint_editing_open:
+        raise HTTPException(status_code=403, detail="Endpoint editing is currently locked")
 
     url = data.endpoint_url.strip()
     url = _validate_endpoint_url(url)

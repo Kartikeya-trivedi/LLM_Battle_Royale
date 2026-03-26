@@ -172,6 +172,12 @@ def advance_winners(round_number: int) -> list[dict]:
         return []
 
     next_round = round_number + 1
+
+    # Guard: if next-round matches already exist, don't create duplicates
+    existing_next = state.get_matches_for_round(next_round)
+    if existing_next:
+        return existing_next
+
     new_matches = []
     for i in range(0, len(winners), 2):
         w1 = winners[i]
