@@ -2,6 +2,18 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback } f
 
 const WebSocketContext = createContext(null);
 
+function getWebSocketUrl() {
+    const configuredUrl = import.meta.env.VITE_WS_URL;
+    if (configuredUrl) {
+        if (configuredUrl.startsWith('http://')) return configuredUrl.replace('http://', 'ws://');
+        if (configuredUrl.startsWith('https://')) return configuredUrl.replace('https://', 'wss://');
+        return configuredUrl;
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}/ws`;
+}
+
 export function WebSocketProvider({ children }) {
     const [isConnected, setIsConnected] = useState(false);
     const wsRef = useRef(null);
@@ -9,8 +21,7 @@ export function WebSocketProvider({ children }) {
     const reconnectTimeoutRef = useRef(null);
 
     const connect = useCallback(() => {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        const wsUrl = getWebSocketUrl();
 
         const ws = new WebSocket(wsUrl);
 
