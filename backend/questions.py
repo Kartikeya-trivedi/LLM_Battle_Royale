@@ -98,3 +98,15 @@ ROUND_QUESTIONS = {
         ),
     },
 }
+
+
+def get_questions_for_round(round_num: int) -> dict:
+    """Get questions for a given round, with a fallback for rounds beyond 6."""
+    if round_num in ROUND_QUESTIONS:
+        return ROUND_QUESTIONS[round_num]
+    # Fallback: generate generic questions for rounds beyond what's defined
+    return {
+        1: f"Round {round_num} Complex Puzzle: Design a creative algorithmic solution to a real-world optimization problem of your choosing. Explain your approach step by step.",
+        2: f"Round {round_num} Math: A factory produces items with a 2% defect rate. If you sample 500 items, what is the probability of finding more than 15 defective items? Show your work using appropriate statistical methods.",
+        3: f"Round {round_num} General Knowledge: Compare and contrast two major technological breakthroughs of the 21st century. Discuss their societal impact, ethical implications, and future potential.",
+    }

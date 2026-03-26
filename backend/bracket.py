@@ -114,16 +114,29 @@ def determine_match_winner(match_id: str) -> dict:
     match["team1_total"] = t1
     match["team2_total"] = t2
 
-    if t1 >= t2:
+    if t1 > t2:
         match["winner_id"] = match["team1_id"]
         match["winner_name"] = match["team1_name"]
         if match["team2_id"]:
             TeamRepository.eliminate_team(match["team2_id"])
-    else:
+    elif t2 > t1:
         match["winner_id"] = match["team2_id"]
         match["winner_name"] = match["team2_name"]
         if match["team1_id"]:
             TeamRepository.eliminate_team(match["team1_id"])
+    else:
+        # Tie-break: random coin flip (fair for both teams)
+        coin = random.choice(["team1", "team2"])
+        if coin == "team1":
+            match["winner_id"] = match["team1_id"]
+            match["winner_name"] = match["team1_name"]
+            if match["team2_id"]:
+                TeamRepository.eliminate_team(match["team2_id"])
+        else:
+            match["winner_id"] = match["team2_id"]
+            match["winner_name"] = match["team2_name"]
+            if match["team1_id"]:
+                TeamRepository.eliminate_team(match["team1_id"])
 
     match["completed"] = True
 

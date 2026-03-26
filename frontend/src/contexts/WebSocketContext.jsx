@@ -19,6 +19,7 @@ export function WebSocketProvider({ children }) {
     const wsRef = useRef(null);
     const listenersRef = useRef({});
     const reconnectTimeoutRef = useRef(null);
+    const reconnectDelayRef = useRef(2000);  // Start at 2s, exponential backoff
 
     const connect = useCallback(() => {
         const wsUrl = getWebSocketUrl();
@@ -28,6 +29,7 @@ export function WebSocketProvider({ children }) {
         ws.onopen = () => {
             console.log('[WS] Connected');
             setIsConnected(true);
+            reconnectDelayRef.current = 2000;  // Reset backoff on success
         };
 
         ws.onmessage = (event) => {
@@ -48,9 +50,12 @@ export function WebSocketProvider({ children }) {
         };
 
         ws.onclose = () => {
-            console.log('[WS] Disconnected, reconnecting in 2s...');
+            const delay = reconnectDelayRef.current;
+            console.log(`[WS] Disconnected, reconnecting in ${delay / 1000}s...`);
             setIsConnected(false);
-            reconnectTimeoutRef.current = setTimeout(connect, 2000);
+            reconnectTimeoutRef.current = setTimeout(connect, delay);
+            // Exponential backoff: 2s -> 4s -> 8s -> 16s -> max 30s
+            reconnectDelayRef.current = Math.min(delay * 2, 30000);
         };
 
         ws.onerror = (err) => {
@@ -85,6 +90,25 @@ export function WebSocketProvider({ children }) {
 
     return (
         <WebSocketContext.Provider value={{ isConnected, subscribe }}>
+            {/* Reconnection banner */}
+            {!isConnected && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    zIndex: 9999,
+                    background: 'linear-gradient(90deg, #ff4444, #ff6b35)',
+                    color: '#fff',
+                    textAlign: 'center',
+                    padding: '0.4rem 1rem',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.5px',
+                }}>
+                    ⚡ Connection lost — reconnecting...
+                </div>
+            )}
             {children}
         </WebSocketContext.Provider>
     );

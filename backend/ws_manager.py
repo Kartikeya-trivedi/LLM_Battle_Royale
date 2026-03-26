@@ -26,14 +26,18 @@ class ConnectionManager:
         print(f"[WS] Client disconnected. Total: {len(self.active_connections)}")
 
     async def broadcast(self, event_type: str, data: dict):
-        """Broadcast an event to all connected WebSocket clients."""
+        """Broadcast an event to all connected WebSocket clients (parallel)."""
+        import asyncio
         message = json.dumps({"type": event_type, "data": data})
         disconnected = []
-        for connection in self.active_connections:
+
+        async def _send(conn):
             try:
-                await connection.send_text(message)
+                await conn.send_text(message)
             except Exception:
-                disconnected.append(connection)
+                disconnected.append(conn)
+
+        await asyncio.gather(*[_send(c) for c in self.active_connections])
 
         for conn in disconnected:
             self.disconnect(conn)

@@ -4,6 +4,11 @@ import asyncio
 from google import genai
 
 
+# ── Shared constants ─────────────────────────────────────────────────
+JUDGE_MODEL = os.getenv("JUDGE_MODEL", "gemma-3-27b-it")
+_judge_semaphore = asyncio.Semaphore(5)  # Limit concurrent LLM calls
+
+
 def get_client():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -39,6 +44,41 @@ CATEGORY_CRITERIA = {
 }
 
 
+async def _fetch_with_retries(client, scoring_prompt: str, max_retries: int = 3):
+    """Fetch from Gemini with retries on rate limits. Raises on all failures."""
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            return await client.aio.models.generate_content(
+                model=JUDGE_MODEL,
+                contents=scoring_prompt,
+            )
+        except Exception as e:
+            last_error = e
+            if "429" in str(e) or "quota" in str(e).lower() or "503" in str(e):
+                if attempt < max_retries - 1:
+                    wait = 2 * (attempt + 1)
+                    print(f"[Gemini Judge] Rate limit hit. Retrying in {wait}s...")
+                    await asyncio.sleep(wait)
+                    continue
+            raise e
+    # All retries exhausted
+    raise last_error or RuntimeError("All Gemini retries exhausted with no response")
+
+
+def _clean_json_text(text: str) -> str:
+    """Strip markdown code fences from Gemini response."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+    if text.startswith("json"):
+        text = text[4:].strip()
+    return text
+
+
 async def judge_submission(challenge_prompt: str, response_text: str, team_name: str, category: str) -> dict:
     """
     Send submission to Gemini for scoring.
@@ -69,41 +109,11 @@ You MUST respond with ONLY valid JSON in this exact format, no other text:
 
     try:
         client = get_client()
-        
-        async def _fetch():
-            for attempt in range(3):
-                try:
-                    return await client.aio.models.generate_content(
-                        # model="gemini-3.1-flash-lite-preview",
-                        model="gemma-27b-it",
-                        contents=scoring_prompt,
-                    )
-                except Exception as e:
-                    if "429" in str(e) or "quota" in str(e).lower() or "503" in str(e):
-                        if attempt < 2:
-                            print(f"[Gemini Judge] Rate limit hit. Retrying in {2 * (attempt + 1)}s...")
-                            await asyncio.sleep(2 * (attempt + 1))
-                            continue
-                    raise e
 
-        # Limit to 5 concurrent LLM calls across the whole app
-        global _judge_semaphore
-        if '_judge_semaphore' not in globals():
-            _judge_semaphore = asyncio.Semaphore(5)
-            
         async with _judge_semaphore:
-            response = await _fetch()
+            response = await _fetch_with_retries(client, scoring_prompt)
 
-        text = response.text.strip()
-        # Clean potential markdown wrapping
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-            if text.endswith("```"):
-                text = text[:-3]
-            text = text.strip()
-        if text.startswith("json"):
-            text = text[4:].strip()
-
+        text = _clean_json_text(response.text)
         result = json.loads(text)
         score = max(0, min(100, int(result.get("score", 0))))
         reasoning = str(result.get("reasoning", "No reasoning provided"))
@@ -112,23 +122,10 @@ You MUST respond with ONLY valid JSON in this exact format, no other text:
 
     except json.JSONDecodeError as e:
         print(f"[Gemini Judge] JSON parse error: {e}. Raw: {text[:200]}")
-        return {"score": None, "reasoning": f"Judging error: could not parse response"}
+        return {"score": None, "reasoning": "Judging error: could not parse response"}
     except Exception as e:
         print(f"[Gemini Judge] Error: {e}")
         return {"score": None, "reasoning": f"Judging error: {str(e)[:100]}"}
-
-
-def _clean_json_text(text: str) -> str:
-    """Strip markdown code fences from Gemini response."""
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-    if text.startswith("json"):
-        text = text[4:].strip()
-    return text
 
 
 async def judge_match_submission(
@@ -173,30 +170,9 @@ You MUST respond with ONLY valid JSON in this exact format, no markdown, no prea
 
     try:
         client = get_client()
-        
-        async def _fetch():
-            for attempt in range(3):
-                try:
-                    return await client.aio.models.generate_content(
-                        # model="gemini-3.1-flash-lite-preview",
-                        model="gemma-3-27b-it",
-                        contents=scoring_prompt,
-                    )
-                except Exception as e:
-                    if "429" in str(e) or "quota" in str(e).lower() or "503" in str(e):
-                        if attempt < 2:
-                            print(f"[Gemini Judge] Rate limit hit. Retrying in {2 * (attempt + 1)}s...")
-                            await asyncio.sleep(2 * (attempt + 1))
-                            continue
-                    raise e
 
-        # Limit to 5 concurrent LLM calls across the whole app
-        global _judge_semaphore
-        if '_judge_semaphore' not in globals():
-            _judge_semaphore = asyncio.Semaphore(5)
-            
         async with _judge_semaphore:
-            response = await _fetch()
+            response = await _fetch_with_retries(client, scoring_prompt)
 
         text = _clean_json_text(response.text)
         result = json.loads(text)

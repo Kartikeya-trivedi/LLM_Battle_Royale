@@ -28,10 +28,12 @@ import backend.database as _database  # noqa: F401
 
 app = FastAPI(title="InferenceX LLM Battle Royale", version="2.0.0")
 
-# CORS — allow frontend dev server
+# CORS — restrict to known origins (override via ALLOWED_ORIGINS env var)
+_default_origins = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]
+_allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else _default_origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,8 +56,15 @@ async def health():
 
 @app.get("/api/state")
 async def get_public_state():
-    """Publicly accessible full state dump."""
-    return state.to_dict()
+    """Publicly accessible state dump — strips sensitive fields."""
+    full = state.to_dict()
+    # Strip sensitive fields from teams for public consumption
+    safe_teams = []
+    for t in full.get("teams", []):
+        safe_team = {k: v for k, v in t.items() if k not in ("endpoint_url", "password_hash", "is_admin")}
+        safe_teams.append(safe_team)
+    full["teams"] = safe_teams
+    return full
 
 
 @app.get("/api/standings")

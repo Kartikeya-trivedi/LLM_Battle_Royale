@@ -2,6 +2,7 @@ import asyncio
 import os
 import secrets
 import time
+from datetime import datetime
 import httpx
 from fastapi import APIRouter, HTTPException, Depends, Header
 from backend.models import state, ScoreOverride, SubRoundConfig, SUB_ROUND_CATEGORIES
@@ -15,7 +16,11 @@ from backend.database import TeamRepository
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 _timer_task: asyncio.Task | None = None
-_admin_tokens: set[str] = set()
+_admin_tokens: dict[str, float] = {}  # token -> expiry timestamp
+_TOKEN_TTL_SECONDS = 86400  # 24 hours
+
+# Lock for protecting state mutations during concurrent match processing
+_state_lock = asyncio.Lock()
 
 
 # ── Shared timer helper ──────────────────────────────────────────────
@@ -83,7 +88,9 @@ async def verify_admin(authorization: str = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
     token = authorization.removeprefix("Bearer ").strip()
-    if token not in _admin_tokens:
+    expiry = _admin_tokens.get(token)
+    if expiry is None or time.time() > expiry:
+        _admin_tokens.pop(token, None)  # Clean up expired token
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
@@ -94,7 +101,12 @@ async def admin_login(data: dict):
     if password != _get_admin_password():
         raise HTTPException(status_code=401, detail="Wrong password")
     token = secrets.token_urlsafe(32)
-    _admin_tokens.add(token)
+    _admin_tokens[token] = time.time() + _TOKEN_TTL_SECONDS
+    # Clean up old expired tokens
+    now = time.time()
+    expired = [t for t, exp in _admin_tokens.items() if now > exp]
+    for t in expired:
+        del _admin_tokens[t]
     return {"token": token}
 
 
@@ -211,6 +223,11 @@ async def run_sub_round(round_num: int, sub_round: int, _=Depends(verify_admin))
     # Filter to matches that actually have 2 teams (skip byes)
     active_matches = [m for m in matches if m["team1_id"] and m["team2_id"] and not m.get("winner_id")]
 
+    # Guard: prevent re-running already completed sub-rounds (#22)
+    br = state.bracket_rounds[round_num]
+    if sub_round in br.get("sub_rounds_completed", []):
+        raise HTTPException(status_code=400, detail=f"Sub-round {sub_round} already completed for bracket round {round_num}")
+
     await manager.broadcast("sub_round_start", {
         "bracket_round": round_num,
         "sub_round": sub_round,
@@ -243,7 +260,7 @@ async def run_sub_round(round_num: int, sub_round: int, _=Depends(verify_admin))
                 # Special case for testing with a dummy endpoint
                 dummy_text = f"[DUMMY] This is a simulated response from {team['name']} for prompt: {prompt[:30]}..."
                 sub["response_text"] = dummy_text
-                sub["timestamp"] = __import__("datetime").datetime.now().isoformat()
+                sub["timestamp"] = datetime.now().isoformat()
                 state.update_submission(sub)
                 log_llm_fetch(team["name"], "DUMMY", prompt, dummy_text, None)
                 return
@@ -264,12 +281,12 @@ async def run_sub_round(round_num: int, sub_round: int, _=Depends(verify_admin))
                     else:
                         response_text = str(data)
                     sub["response_text"] = response_text
-                    sub["timestamp"] = __import__("datetime").datetime.now().isoformat()
+                    sub["timestamp"] = datetime.now().isoformat()
                     state.update_submission(sub)
                     log_llm_fetch(team["name"], team["endpoint_url"], prompt, response_text, None)
             except Exception as e:
                 sub["fetch_error"] = str(e)[:200]
-                sub["timestamp"] = __import__("datetime").datetime.now().isoformat()
+                sub["timestamp"] = datetime.now().isoformat()
                 state.update_submission(sub)
                 log_llm_fetch(team["name"], team["endpoint_url"], prompt, None, str(e)[:200])
 
@@ -539,9 +556,9 @@ async def test_endpoint(data: dict, _=Depends(verify_admin)):
 @router.post("/setup-dummy")
 async def setup_dummy(_=Depends(verify_admin)):
     """Clear state, register 2 dummy teams, seed, and generate bracket to prepare for testing."""
-    state.__init__()
-    team1 = state.add_team("Dummy Alpha 🚀", ["Alice", "Bob"], "DUMMY")
-    team2 = state.add_team("Dummy Beta 💥", ["Charlie", "Dana"], "DUMMY")
+    state.clear_all()
+    team1 = state.add_team("Dummy Alpha 🚀", "dummy123", ["Alice", "Bob"], "DUMMY")
+    team2 = state.add_team("Dummy Beta 💥", "dummy123", ["Charlie", "Dana"], "DUMMY")
     teams = seed_teams(mode="random")
     matches = generate_bracket()
 

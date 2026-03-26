@@ -272,12 +272,9 @@ export default function Registration() {
                         <div className="card team-mini-card" key={teamData.id}>
                             <h4>{teamData.name}</h4>
                             <div className="members">
-                                {teamData.members.map((m, i) => (
-                                    <span key={i}>{m.name} ({m.roll}){i < teamData.members.length - 1 ? ', ' : ''}</span>
-                                ))}
-                            </div>
-                            <div style={{ marginTop: '0.4rem', fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {teamData.endpoint_url}
+                                {Array.isArray(teamData.members) ? teamData.members.map((m, i) => (
+                                    <span key={i}>{typeof m === 'string' ? m : m.name}{i < teamData.members.length - 1 ? ', ' : ''}</span>
+                                )) : ''}
                             </div>
                         </div>
                     ))}

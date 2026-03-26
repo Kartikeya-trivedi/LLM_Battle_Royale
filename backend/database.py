@@ -1,7 +1,7 @@
 import psycopg2
 from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
-import hashlib
+import bcrypt
 import uuid
 import json
 import os
@@ -147,13 +147,13 @@ def init_database():
 
 
 def hash_password(password: str) -> str:
-    """Hash a password using SHA-256."""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Hash a password using bcrypt with automatic salting."""
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    """Verify a password against its hash."""
-    return hash_password(password) == password_hash
+    """Verify a password against its bcrypt hash."""
+    return bcrypt.checkpw(password.encode(), password_hash.encode())
 
 
 @contextmanager
