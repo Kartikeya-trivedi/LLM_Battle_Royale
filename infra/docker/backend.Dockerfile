@@ -9,17 +9,13 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential libpq-dev curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/ ./backend/
+COPY backend/pyproject.toml ./backend/pyproject.toml
 
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir \
-        fastapi>=0.135.1 \
-        google-genai>=1.66.0 \
-        gunicorn>=23.0.0 \
-        psycopg2>=2.9.11 \
-        pydantic>=2.12.5 \
-        python-dotenv>=1.2.2 \
-        uvicorn[standard]>=0.41.0
+    && python -c "import tomllib, pathlib; pyproject = tomllib.loads(pathlib.Path('/app/backend/pyproject.toml').read_text(encoding='utf-8')); deps = pyproject['project']['dependencies']; pathlib.Path('/tmp/requirements.txt').write_text('\\n'.join(deps) + '\\n', encoding='utf-8')" \
+    && pip install --no-cache-dir -r /tmp/requirements.txt
+
+COPY backend/ ./backend/
 
 EXPOSE 80
 

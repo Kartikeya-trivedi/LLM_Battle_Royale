@@ -37,7 +37,7 @@
                 path /api/teams /api/teams/* /api/teams/test-endpoint
             }
             key {remote_host}
-            events 100
+            events 300
             window 1m
         }
 
@@ -83,7 +83,7 @@
 
     reverse_proxy @websocket backend:80 {
         transport http {
-            versions h1
+            versions 1.1
             keepalive 30s
         }
     }
