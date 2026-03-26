@@ -1,21 +1,30 @@
 import os
+import sys
+from pathlib import Path
 from dotenv import load_dotenv
 
+BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = BASE_DIR.parent
+
+# Allow running `uvicorn main:app` from inside the backend directory.
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 # Load env vars before anything else
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+load_dotenv(BASE_DIR / ".env")
 
 # Ensure logs directory exists
-os.makedirs(os.path.join(os.path.dirname(__file__), "logs"), exist_ok=True)
+os.makedirs(BASE_DIR / "logs", exist_ok=True)
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+
 from backend.routes.teams import router as teams_router
 from backend.routes.submissions import router as submissions_router
 from backend.routes.admin import router as admin_router
 from backend.ws_manager import manager
 from backend.models import state
-# Import database to ensure it's initialized
-import backend.database
+import backend.database as _database  # noqa: F401
 
 app = FastAPI(title="InferenceX LLM Battle Royale", version="2.0.0")
 
@@ -68,14 +77,14 @@ async def get_bracket():
     }
 
 
-# ── WebSocket endpoint ───────────────────────────────────────────────
+# WebSocket 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            data = await websocket.receive_text()
+            await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception:
