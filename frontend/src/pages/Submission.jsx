@@ -136,6 +136,10 @@ export default function Submission() {
 
     const handleSaveEndpoint = async () => {
         if (!newEndpointUrl.trim()) return;
+        if (newEndpointUrl.trim() !== 'DUMMY' && !newEndpointUrl.trim().endsWith('.modal.run')) {
+            setEndpointStatus({ success: false, error: 'Endpoint URL must end with .modal.run' });
+            return;
+        }
         setSavingEndpoint(true);
         try {
             const res = await fetch(`/api/teams/${team.id}/endpoint`, {

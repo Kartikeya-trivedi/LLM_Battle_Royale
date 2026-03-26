@@ -1,3 +1,4 @@
+/* ── Full-size timer (used in admin + Submission page) ─────────── */
 .timer-container {
     text-align: center;
     padding: 1.5rem;
@@ -18,6 +19,7 @@
     letter-spacing: 4px;
     color: var(--accent-cyan);
     text-shadow: 0 0 30px rgba(0, 240, 255, 0.4);
+    line-height: 1;
 }
 
 .timer-display.warning {
@@ -57,4 +59,34 @@
 
 .timer-bar.critical {
     background: var(--accent-red);
+}
+
+/* ── Compact variant (used in Live page top-right corner) ──────── */
+.timer-compact {
+    padding: 0.65rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+
+.timer-compact .timer-label {
+    font-size: 0.62rem;
+    letter-spacing: 1.5px;
+    margin-bottom: 0.2rem;
+}
+
+.timer-compact .timer-display {
+    font-size: 1.75rem;
+    letter-spacing: 3px;
+}
+
+.timer-compact .timer-bar-wrapper {
+    margin-top: 0.4rem;
+    width: 100%;
+    height: 3px;
+}
+
+.timer-inactive {
+    opacity: 0.35;
 }

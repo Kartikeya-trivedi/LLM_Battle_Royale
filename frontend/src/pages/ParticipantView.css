@@ -1,71 +1,59 @@
-.participant-page .top-section {
-    display: grid;
-    grid-template-columns: 1fr 320px;
-    gap: 2rem;
-    margin-bottom: 2rem;
-}
-
-.participant-page .bracket-section {
-    margin-bottom: 2rem;
-}
-
-.participant-page .bottom-section {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-}
-
-.matchup-card {
-    text-align: center;
-    padding: 2rem;
-}
-
-.matchup-vs {
+/* ── Page header ────────────────────────────────────────────────── */
+.pv-header {
     display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.pv-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.pv-round-badge {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 2rem;
-    margin: 1.5rem 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent-purple);
+    background: rgba(157, 0, 255, 0.1);
+    border: 1px solid rgba(157, 0, 255, 0.25);
+    border-radius: 999px;
+    padding: 0.2rem 0.75rem;
+    letter-spacing: 0.5px;
 }
 
-.matchup-team {
-    flex: 1;
-    padding: 1.5rem;
-    border-radius: var(--radius-md);
-    background: rgba(255, 255, 255, 0.02);
+/* ── Compact timer in top-right ─────────────────────────────────── */
+.pv-timer-corner {
+    flex-shrink: 0;
+    min-width: 180px;
+}
+
+.pv-timer-corner .timer-container {
+    padding: 0.75rem 1rem;
+    background: var(--bg-card);
     border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
 }
 
-.matchup-team.you {
-    border-color: var(--accent-cyan);
-    background: rgba(0, 240, 255, 0.03);
+.pv-timer-corner .timer-display {
+    font-size: 2rem;
+    letter-spacing: 3px;
 }
 
-.matchup-team-name {
-    font-size: 1.2rem;
-    font-weight: 700;
+.pv-timer-corner .timer-label {
+    font-size: 0.7rem;
     margin-bottom: 0.25rem;
 }
 
-.matchup-team-score {
-    font-family: var(--font-mono);
-    font-size: 2rem;
-    font-weight: 800;
+.pv-timer-corner .timer-bar-wrapper {
     margin-top: 0.5rem;
 }
 
-.matchup-vs-text {
-    font-size: 1.5rem;
-    font-weight: 900;
-    color: var(--accent-magenta);
-    text-shadow: 0 0 20px rgba(255, 0, 170, 0.5);
-}
-
-.prompt-section {
-    padding: 1.5rem;
-}
-
-/* ── Live Status Banner ────────────────────────────────────────── */
+/* ── Status banner ──────────────────────────────────────────────── */
 .participant-status {
     padding: 0.75rem 1.25rem;
     border-radius: var(--radius-md);
@@ -96,14 +84,99 @@
     border-radius: 50%;
     background: var(--accent-cyan);
     animation: pulse 1s ease-in-out infinite;
+    flex-shrink: 0;
 }
 
-@media (max-width: 1024px) {
-    .participant-page .top-section {
-        grid-template-columns: 1fr;
+/* ── Champion splash ────────────────────────────────────────────── */
+.champion-splash {
+    text-align: center;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    border: 1px solid var(--accent-yellow);
+    background: linear-gradient(135deg, rgba(255, 221, 0, 0.05), rgba(255, 136, 0, 0.08));
+    box-shadow: 0 0 40px rgba(255, 221, 0, 0.1);
+}
+
+.champion-splash-name {
+    font-size: 2rem;
+    background: linear-gradient(90deg, var(--accent-yellow), var(--accent-green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0.5rem 0;
+}
+
+/* ── Current challenge ──────────────────────────────────────────── */
+.current-challenge {
+    margin-bottom: 2rem;
+    border: 2px solid var(--accent-purple);
+    background: rgba(157, 0, 255, 0.05);
+    padding: 2rem;
+    box-shadow: 0 0 30px rgba(157, 0, 255, 0.15);
+}
+
+.current-challenge-label {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--accent-purple);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin: 0 0 1rem;
+}
+
+.current-challenge-text {
+    font-size: 1.4rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    font-style: italic;
+}
+
+/* ── Leaderboard section ────────────────────────────────────────── */
+.pv-leaderboard-section {
+    margin-bottom: 2.5rem;
+}
+
+.pv-leaderboard-card {
+    border: 1px solid rgba(0, 255, 136, 0.15);
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.05);
+}
+
+/* ── Section header shared ──────────────────────────────────────── */
+.pv-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1rem 1.25rem 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 0;
+}
+
+.pv-section-icon {
+    font-size: 1.1rem;
+}
+
+.pv-section-title {
+    font-size: 1rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+/* ── Bracket section ────────────────────────────────────────────── */
+.pv-bracket-section {
+    margin-bottom: 2rem;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .pv-header {
+        flex-direction: column;
     }
 
-    .participant-page .bottom-section {
-        grid-template-columns: 1fr;
+    .pv-timer-corner {
+        width: 100%;
     }
 }
