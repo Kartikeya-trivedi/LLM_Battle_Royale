@@ -80,6 +80,9 @@ class AppState:
         self.seeded: bool = False
         self.bracket_generated: bool = False
         self.total_bracket_rounds: int = 0
+        # Configurable inter-round delays (seconds)
+        self.sub_round_delay_seconds: int = 30
+        self.round_delay_seconds: int = 300
 
         # Load existing data from database
         self._load_from_database()
@@ -253,6 +256,8 @@ class AppState:
         self.seeded = False
         self.bracket_generated = False
         self.total_bracket_rounds = 0
+        self.sub_round_delay_seconds = 30
+        self.round_delay_seconds = 300
 
         # Clear database
         SubmissionRepository.delete_all_submissions()
@@ -271,6 +276,8 @@ class AppState:
             "seeded": self.seeded,
             "bracket_generated": self.bracket_generated,
             "champion": self.champion,
+            "sub_round_delay_seconds": self.sub_round_delay_seconds,
+            "round_delay_seconds": self.round_delay_seconds,
         }
 
 

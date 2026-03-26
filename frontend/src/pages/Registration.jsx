@@ -74,6 +74,11 @@ export default function Registration() {
             setLoading(false);
             return;
         }
+        if (endpointUrl.trim() !== 'DUMMY' && !endpointUrl.trim().endsWith('.modal.run')) {
+            setError('LLM Endpoint URL must end with .modal.run');
+            setLoading(false);
+            return;
+        }
 
         try {
             const res = await fetch('/api/teams', {

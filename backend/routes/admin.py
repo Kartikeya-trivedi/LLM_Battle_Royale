@@ -18,6 +18,34 @@ _timer_task: asyncio.Task | None = None
 _admin_tokens: set[str] = set()
 
 
+# ── Shared timer helper ──────────────────────────────────────────────
+
+async def _run_timer(seconds: int, label: str = ""):
+    """Broadcast a countdown timer to all connected clients."""
+    global _timer_task
+    cr = state.current_bracket_round
+    sr = state.current_sub_round
+
+    await manager.broadcast("timer_start", {
+        "bracket_round": cr,
+        "sub_round": sr,
+        "timer_seconds": seconds,
+        "timer_start": time.time(),
+        "label": label,
+    })
+
+    remaining = seconds
+    while remaining > 0:
+        await asyncio.sleep(1)
+        remaining -= 1
+        await manager.broadcast("timer_tick", {
+            "bracket_round": cr,
+            "sub_round": sr,
+            "remaining": remaining,
+        })
+    await manager.broadcast("timer_end", {"bracket_round": cr, "sub_round": sr})
+
+
 # ── Admin Auth ──────────────────────────────────────────────────────
 
 def _get_admin_password() -> str:
@@ -57,6 +85,27 @@ async def get_questions(_=Depends(verify_admin)):
 async def get_full_state(_=Depends(verify_admin)):
     """Full state dump for admin."""
     return state.to_dict()
+
+
+# ── Settings ─────────────────────────────────────────────────────────
+
+@router.post("/settings")
+async def update_settings(data: dict, _=Depends(verify_admin)):
+    """Update configurable timing settings (sub-round and round delays)."""
+    if "sub_round_delay_seconds" in data:
+        val = int(data["sub_round_delay_seconds"])
+        if val < 0:
+            raise HTTPException(status_code=400, detail="sub_round_delay_seconds must be >= 0")
+        state.sub_round_delay_seconds = val
+    if "round_delay_seconds" in data:
+        val = int(data["round_delay_seconds"])
+        if val < 0:
+            raise HTTPException(status_code=400, detail="round_delay_seconds must be >= 0")
+        state.round_delay_seconds = val
+    return {
+        "sub_round_delay_seconds": state.sub_round_delay_seconds,
+        "round_delay_seconds": state.round_delay_seconds,
+    }
 
 
 # ── Seeding & Bracket ────────────────────────────────────────────────
@@ -300,6 +349,9 @@ async def run_sub_round(round_num: int, sub_round: int, _=Depends(verify_admin))
     # If all 3 sub-rounds done, auto-determine winners and advance
     if len(br["sub_rounds_completed"]) >= 3:
         asyncio.create_task(_complete_bracket_round(round_num))
+    elif state.sub_round_delay_seconds > 0:
+        # Fire a countdown break timer between sub-rounds (non-blocking)
+        asyncio.create_task(_run_timer(state.sub_round_delay_seconds, "sub_round_break"))
 
     return {
         "message": f"Sub-round {sub_round} ({SUB_ROUND_CATEGORIES[sub_round]}) completed for {len(active_matches)} matches",
@@ -362,6 +414,9 @@ async def _complete_bracket_round(round_num: int):
                 "total_score": champ["total_score"],
             })
     elif new_matches:
+        # Wait between bracket rounds before announcing the next one
+        if state.round_delay_seconds > 0:
+            await _run_timer(state.round_delay_seconds, "round_break")
         await manager.broadcast("bracket_update", {
             "matches": new_matches,
             "current_bracket_round": state.current_bracket_round,
@@ -391,31 +446,11 @@ async def complete_bracket_round(round_num: int, _=Depends(verify_admin)):
 async def start_timer(data: dict = None, _=Depends(verify_admin)):
     global _timer_task
     seconds = data.get("timer_seconds", 120) if data else 120
-    cr = state.current_bracket_round
-    sr = state.current_sub_round
-
-    await manager.broadcast("timer_start", {
-        "bracket_round": cr,
-        "sub_round": sr,
-        "timer_seconds": seconds,
-        "timer_start": time.time(),
-    })
-
-    async def _countdown():
-        remaining = seconds
-        while remaining > 0:
-            await asyncio.sleep(1)
-            remaining -= 1
-            await manager.broadcast("timer_tick", {
-                "bracket_round": cr,
-                "sub_round": sr,
-                "remaining": remaining,
-            })
-        await manager.broadcast("timer_end", {"bracket_round": cr, "sub_round": sr})
+    label = data.get("label", "") if data else ""
 
     if _timer_task and not _timer_task.done():
         _timer_task.cancel()
-    _timer_task = asyncio.create_task(_countdown())
+    _timer_task = asyncio.create_task(_run_timer(seconds, label))
     return {"message": "Timer started"}
 
 

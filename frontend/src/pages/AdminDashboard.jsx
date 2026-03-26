@@ -29,6 +29,9 @@ export default function AdminDashboard() {
     const [appState, setAppState] = useState(null);
     const [prompt, setPrompt] = useState('');
     const [timerSeconds, setTimerSeconds] = useState(120);
+    const [subRoundDelay, setSubRoundDelay] = useState(30);
+    const [roundDelay, setRoundDelay] = useState(300);
+    const [timingSettingsSaved, setTimingSettingsSaved] = useState(false);
     const [loading, setLoading] = useState({});
     const [selectedBracketRound, setSelectedBracketRound] = useState(1);
     const [selectedSubRound, setSelectedSubRound] = useState(1);
@@ -74,6 +77,9 @@ export default function AdminDashboard() {
             if (res.status === 401) { handleLogout(); return; }
             const data = await res.json();
             setAppState(data);
+            // Sync timing delays from server state
+            if (data.sub_round_delay_seconds !== undefined) setSubRoundDelay(data.sub_round_delay_seconds);
+            if (data.round_delay_seconds !== undefined) setRoundDelay(data.round_delay_seconds);
             if (data.current_bracket_round > 0) {
                 setSelectedBracketRound(data.current_bracket_round);
             }
@@ -173,6 +179,23 @@ export default function AdminDashboard() {
             throw e;
         } finally {
             setLoading((prev) => ({ ...prev, [url]: false }));
+        }
+    };
+
+    const saveTimingSettings = async () => {
+        try {
+            await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                body: JSON.stringify({
+                    sub_round_delay_seconds: subRoundDelay,
+                    round_delay_seconds: roundDelay,
+                }),
+            });
+            setTimingSettingsSaved(true);
+            setTimeout(() => setTimingSettingsSaved(false), 2000);
+        } catch (e) {
+            alert('Failed to save settings: ' + e.message);
         }
     };
 
@@ -328,6 +351,53 @@ export default function AdminDashboard() {
                         {appState.seeded ? '✅ Seeded' : '⏳ Not seeded'}
                         {' · '}
                         {appState.bracket_generated ? `✅ Bracket ready (${totalBracketRounds} rounds)` : '⏳ No bracket'}
+                    </div>
+                </div>
+
+                {/* Timing Settings Card */}
+                <div className="card">
+                    <div className="admin-section-header">
+                        <h3>⏱ Timing Settings</h3>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', minWidth: '160px' }}>
+                                Sub-Round Break (s)
+                            </label>
+                            <input
+                                className="input timer-input"
+                                type="number"
+                                value={subRoundDelay}
+                                onChange={(e) => setSubRoundDelay(Number(e.target.value))}
+                                min={0}
+                                max={600}
+                                style={{ width: '80px' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', minWidth: '160px' }}>
+                                Round Break (s)
+                            </label>
+                            <input
+                                className="input timer-input"
+                                type="number"
+                                value={roundDelay}
+                                onChange={(e) => setRoundDelay(Number(e.target.value))}
+                                min={0}
+                                max={3600}
+                                style={{ width: '80px' }}
+                            />
+                        </div>
+                        <button
+                            className="btn btn-primary btn-sm"
+                            onClick={saveTimingSettings}
+                            style={{ alignSelf: 'flex-start' }}
+                        >
+                            {timingSettingsSaved ? '✅ Saved!' : '💾 Save Timing'}
+                        </button>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                            Delays fire automatically as countdown timers visible to all participants.
+                        </p>
                     </div>
                 </div>
 
