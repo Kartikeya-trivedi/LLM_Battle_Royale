@@ -37,7 +37,7 @@
                 path /api/teams /api/teams/* /api/teams/test-endpoint
             }
             key {remote_host}
-            events 100
+            events 300
             window 1m
         }
 
