@@ -20,9 +20,20 @@ _admin_tokens: set[str] = set()
 
 # ── Shared timer helper ──────────────────────────────────────────────
 
+async def _cancel_existing_timer():
+    """Cancel the currently running timer task (if any) and wait for it to finish."""
+    global _timer_task
+    if _timer_task and not _timer_task.done():
+        _timer_task.cancel()
+        try:
+            await _timer_task
+        except asyncio.CancelledError:
+            pass
+    _timer_task = None
+
+
 async def _run_timer(seconds: int, label: str = ""):
     """Broadcast a countdown timer to all connected clients."""
-    global _timer_task
     cr = state.current_bracket_round
     sr = state.current_sub_round
 
@@ -35,15 +46,27 @@ async def _run_timer(seconds: int, label: str = ""):
     })
 
     remaining = seconds
-    while remaining > 0:
-        await asyncio.sleep(1)
-        remaining -= 1
-        await manager.broadcast("timer_tick", {
-            "bracket_round": cr,
-            "sub_round": sr,
-            "remaining": remaining,
-        })
+    try:
+        while remaining > 0:
+            await asyncio.sleep(1)
+            remaining -= 1
+            await manager.broadcast("timer_tick", {
+                "bracket_round": cr,
+                "sub_round": sr,
+                "remaining": remaining,
+            })
+    except asyncio.CancelledError:
+        await manager.broadcast("timer_end", {"bracket_round": cr, "sub_round": sr})
+        raise
+
     await manager.broadcast("timer_end", {"bracket_round": cr, "sub_round": sr})
+
+
+async def _start_managed_timer(seconds: int, label: str = ""):
+    """Cancel any existing timer, then start a new managed timer task."""
+    global _timer_task
+    await _cancel_existing_timer()
+    _timer_task = asyncio.create_task(_run_timer(seconds, label))
 
 
 # ── Admin Auth ──────────────────────────────────────────────────────
@@ -351,7 +374,7 @@ async def run_sub_round(round_num: int, sub_round: int, _=Depends(verify_admin))
         asyncio.create_task(_complete_bracket_round(round_num))
     elif state.sub_round_delay_seconds > 0:
         # Fire a countdown break timer between sub-rounds (non-blocking)
-        asyncio.create_task(_run_timer(state.sub_round_delay_seconds, "sub_round_break"))
+        await _start_managed_timer(state.sub_round_delay_seconds, "sub_round_break")
 
     return {
         "message": f"Sub-round {sub_round} ({SUB_ROUND_CATEGORIES[sub_round]}) completed for {len(active_matches)} matches",
@@ -416,7 +439,7 @@ async def _complete_bracket_round(round_num: int):
     elif new_matches:
         # Wait between bracket rounds before announcing the next one
         if state.round_delay_seconds > 0:
-            await _run_timer(state.round_delay_seconds, "round_break")
+            await _start_managed_timer(state.round_delay_seconds, "round_break")
         await manager.broadcast("bracket_update", {
             "matches": new_matches,
             "current_bracket_round": state.current_bracket_round,
@@ -444,22 +467,15 @@ async def complete_bracket_round(round_num: int, _=Depends(verify_admin)):
 
 @router.post("/timer/start")
 async def start_timer(data: dict = None, _=Depends(verify_admin)):
-    global _timer_task
     seconds = data.get("timer_seconds", 120) if data else 120
     label = data.get("label", "") if data else ""
-
-    if _timer_task and not _timer_task.done():
-        _timer_task.cancel()
-    _timer_task = asyncio.create_task(_run_timer(seconds, label))
+    await _start_managed_timer(seconds, label)
     return {"message": "Timer started"}
 
 
 @router.post("/timer/stop")
 async def stop_timer(_=Depends(verify_admin)):
-    global _timer_task
-    if _timer_task and not _timer_task.done():
-        _timer_task.cancel()
-        _timer_task = None
+    await _cancel_existing_timer()
     await manager.broadcast("timer_end", {
         "bracket_round": state.current_bracket_round,
         "sub_round": state.current_sub_round,
