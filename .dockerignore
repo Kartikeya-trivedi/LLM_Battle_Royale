@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Logs
+*.log
+backend/logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Frontend (not needed in backend container)
+frontend/
+node_modules/
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# Other backend cruft
+backend/__pycache__/
+backend/.python-version
+
+# Misc
+.DS_Store
+*.bak
+*.tmp

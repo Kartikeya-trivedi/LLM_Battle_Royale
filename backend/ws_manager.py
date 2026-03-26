@@ -1,5 +1,6 @@
 from fastapi import WebSocket
 import json
+import os
 
 
 class ConnectionManager:
@@ -7,11 +8,17 @@ class ConnectionManager:
 
     def __init__(self):
         self.active_connections: list[WebSocket] = []
+        self.max_total_connections = int(os.getenv("MAX_WS_CONNECTIONS", "500"))
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, client_ip: str | None = None):
+        if len(self.active_connections) >= self.max_total_connections:
+            await websocket.close(code=1013, reason="Server at capacity")
+            return
+
         await websocket.accept()
         self.active_connections.append(websocket)
-        print(f"[WS] Client connected. Total: {len(self.active_connections)}")
+        ip_info = f" ip={client_ip}" if client_ip else ""
+        print(f"[WS] Client connected.{ip_info} Total: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:

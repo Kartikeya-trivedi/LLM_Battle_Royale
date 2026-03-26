@@ -1,0 +1,99 @@
+{
+    email {$ACME_EMAIL}
+    servers {
+        protocols h1 h2
+    }
+}
+
+{$BACKEND_DOMAIN} {
+    encode zstd gzip
+
+    rate_limit {
+        # Tight limits for auth endpoints.
+        zone team_login {
+            match {
+                method POST
+                path /api/teams/login
+            }
+            key {remote_host}
+            events 100
+            window 1m
+        }
+
+        zone admin_login {
+            match {
+                method POST
+                path /api/admin/login
+            }
+            key {remote_host}
+            events 10
+            window 1m
+        }
+
+        # Team registration and endpoint edits.
+        zone team_write {
+            match {
+                method POST PUT
+                path /api/teams /api/teams/* /api/teams/test-endpoint
+            }
+            key {remote_host}
+            events 100
+            window 1m
+        }
+
+        # Admin operations excluding login.
+        zone admin_ops {
+            match {
+                method GET POST PUT DELETE PATCH
+                path /api/admin /api/admin/*
+                not path /api/admin/login
+            }
+            key {remote_host}
+            events 120
+            window 1m
+        }
+
+        # Read-only submissions APIs.
+        zone submissions_read {
+            match {
+                method GET
+                path /api/submissions /api/submissions/*
+            }
+            key {remote_host}
+            events 180
+            window 1m
+        }
+
+        # Public state polling endpoints.
+        zone public_state {
+            match {
+                method GET
+                path /api/state /api/standings /api/bracket /api/health
+            }
+            key {remote_host}
+            events 300
+            window 1m
+        }
+    }
+
+    @websocket {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+
+    reverse_proxy @websocket backend:80 {
+        transport http {
+            versions h1
+            keepalive 30s
+        }
+    }
+    reverse_proxy backend:80
+
+    header {
+        -Server
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+    }
+}
