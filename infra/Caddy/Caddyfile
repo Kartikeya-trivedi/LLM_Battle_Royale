@@ -7,6 +7,7 @@
 
 {$BACKEND_DOMAIN} {
     encode zstd gzip
+    
 
     rate_limit {
         # Tight limits for auth endpoints.
@@ -26,7 +27,7 @@
                 path /api/admin/login
             }
             key {remote_host}
-            events 10
+            events 100
             window 1m
         }
 
@@ -37,7 +38,7 @@
                 path /api/teams /api/teams/* /api/teams/test-endpoint
             }
             key {remote_host}
-            events 300
+            events 3000
             window 1m
         }
 
@@ -49,7 +50,7 @@
                 not path /api/admin/login
             }
             key {remote_host}
-            events 120
+            events 200
             window 1m
         }
 
@@ -60,7 +61,7 @@
                 path /api/submissions /api/submissions/*
             }
             key {remote_host}
-            events 300
+            events 3000
             window 1m
         }
 
@@ -84,7 +85,7 @@
     reverse_proxy @websocket backend:80 {
         transport http {
             versions 1.1
-            keepalive 30s
+            keepalive 60s
         }
     }
     reverse_proxy backend:80
