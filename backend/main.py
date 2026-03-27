@@ -69,8 +69,13 @@ async def get_public_state():
 
 @app.get("/api/standings")
 async def get_standings():
-    """All teams with standings, sorted by total score."""
-    return state.get_standings()
+    """All teams with standings, sorted by total score. Strips sensitive fields."""
+    teams = state.get_standings()
+    safe_teams = []
+    for t in teams:
+        safe_team = {k: v for k, v in t.items() if k not in ("endpoint_url", "password_hash", "is_admin")}
+        safe_teams.append(safe_team)
+    return safe_teams
 
 
 @app.get("/api/bracket")

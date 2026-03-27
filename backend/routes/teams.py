@@ -2,17 +2,11 @@ from fastapi import APIRouter, HTTPException, Request
 import httpx
 import os
 import re
-import time
-from collections import defaultdict
 from backend.models import state, TeamCreate, TeamOut, TeamLogin, TeamEndpointUpdate
 from backend.ws_manager import manager
 from backend.database import TeamRepository
 
 router = APIRouter(prefix="/api/teams", tags=["teams"])
-
-# ── Rate limiting ─────────────────────────────────────────────────────
-_registration_attempts: dict[str, list[float]] = defaultdict(list)
-_MAX_REGISTRATIONS_PER_HOUR = 10
 
 # ── Allowed endpoint domains (set via env or default to .modal.run) ──
 _ALLOWED_ENDPOINT_DOMAINS = os.getenv("ALLOWED_ENDPOINT_DOMAINS", ".modal.run").split(",")
@@ -52,17 +46,7 @@ def _sanitize_team_name(name: str) -> str:
     return name.strip()
 
 
-def _check_rate_limit(client_ip: str):
-    """Check registration rate limit per IP."""
-    now = time.time()
-    hour_ago = now - 3600
-    # Clean old entries
-    _registration_attempts[client_ip] = [
-        t for t in _registration_attempts[client_ip] if t > hour_ago
-    ]
-    if len(_registration_attempts[client_ip]) >= _MAX_REGISTRATIONS_PER_HOUR:
-        raise HTTPException(status_code=429, detail="Too many registrations. Try again later.")
-    _registration_attempts[client_ip].append(now)
+
 
 
 @router.post("", response_model=TeamOut)
@@ -71,9 +55,6 @@ async def register_team(team: TeamCreate, request: Request):
     if not state.registration_open:
         raise HTTPException(status_code=403, detail="Registration is currently closed")
 
-    # Rate limit check
-    client_ip = request.client.host if request.client else "unknown"
-    _check_rate_limit(client_ip)
 
     # Sanitize team name
     clean_name = _sanitize_team_name(team.name)
