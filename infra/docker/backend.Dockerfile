@@ -19,4 +19,4 @@ COPY backend/ ./backend/
 
 EXPOSE 80
 
-CMD ["gunicorn", "backend.main:app", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:80", "--workers", "1", "--timeout", "120", "--graceful-timeout", "30", "--keep-alive", "20", "--access-logfile", "-", "--error-logfile", "-"]
+CMD ["gunicorn", "backend.main:app", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:80", "--workers", "3", "--timeout", "120", "--graceful-timeout", "30", "--keep-alive", "20", "--access-logfile", "-", "--error-logfile", "-"]
